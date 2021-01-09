@@ -1,0 +1,37 @@
+// it allows to make others camera and mic turned on
+const socket = io('/');
+const videoGrid = document.getElementById('video-grid');
+const myPeer = new Peer(undefined, {
+  path: '/peerjs',
+  host: '/',
+  port: '3030'
+});
+
+let myVideoStream;
+const myVideo = document.createElement('video');
+myVideo.muted = true;
+const peers = {};
+
+// gets access to the user video
+navigator.mediaDevices.getUserMedia({
+  video: true,
+  audio: true
+}).then(stream => {
+  myVideoStream = stream;
+  addVideoStream(myVideo, stream);
+  // myPeer.on('call', call => {
+  //   call.answer(stream)
+  //   const video = document.createElement('video')
+  //   call.on('stream', userVideoStream => {
+  //     addVideoStream(video, userVideoStream)
+  //   })
+  // });
+});
+
+function addVideoStream(video, stream) {
+  video.srcObject = stream
+  video.addEventListener('loadedmetadata', () => {
+    video.play();
+  });
+  videoGrid.append(video);
+}
