@@ -6,83 +6,106 @@ const myPeer = new Peer(undefined, {
   port: '3030'
 });
 
+let predictedAges = [];
 let myVideoStream;
 const myVideo = document.createElement('video');
 myVideo.muted = true;
-const peers = {};
 
-// gets access to the user video
-navigator.mediaDevices.getUserMedia({
-  video: true,
-  audio: true
-}).then(stream => {
-  myVideoStream = stream;
-  // add my video stream
-  addVideoStream(myVideo, stream);
-  // add new users' video stream via peer
-  myPeer.on('call', call => {
-    call.answer(stream)
-    const video = document.createElement('video');
-    call.on('stream', userVideoStream => {
-      addVideoStream(video, userVideoStream)
-    })
-  });
-  // listen to user-connected
-  socket.on('user-connected', userId => {
-    connectToNewUser(userId, stream)
-  });
-  // input value with JQuerry ($)
-  let text = $("input");
-  // when press enter send message
-  $('html').keydown((e) => {
-    if (e.which == 13 && text.val().length !== 0) {
-      socket.emit('message', text.val());
-      text.val('');
-    }
-  });
+Promise.all([
+  faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+  faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+  faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+  faceapi.nets.faceExpressionNet.loadFromUri('/models'),
+  faceapi.nets.ageGenderNet.loadFromUri("/models")
+]).then(startVideo);
 
-  socket.on("createMessage", message => {
-    $("ul").append(`<li class="message"><b>user</b><br/>${message}</li>`);
-    scrollToBottom();
-  });
-});
+function startVideo() {
+  // gets access to the user video
+  navigator.mediaDevices.getUserMedia({
+    video: true,
+    audio: true,
+  })
+  .then(stream => {
+    myVideoStream = stream;
+    myVideo.srcObject = stream;
+    // add my video stream
+    addVideoStream(myVideo, stream);
+    // add new users' video stream via peer
+    myPeer.on('call', (call) => {
+      call.answer(stream);
+      const video = document.createElement('video');
+      call.on('stream', (userVideoStream) => {
+        addVideoStream(video, userVideoStream);
+        console.log("call on is done! 36th line");
+      })
+      
+    });
+    // listen to user-connected
+    socket.on('user-connected', userId => {
+      console.log('user-connected');
+      connectToNewUser(userId, stream);
+    });
+  },
+    err => console.log(err)
+  );
+};
 
-// listen to user-disconnected
-socket.on('user-disconnected', (userId) => {
-  if (peers[userId]) peers[userId].close()
-});
 
 // make the othes able to join into the room vie peer
-myPeer.on('open', id => {
-  socket.emit('join-room', ROOM_ID, id)
+myPeer.on('open', (id) => {
+  console.log("id: ",id, "Room id: ",ROOM_ID);
+  socket.emit("join-room", ROOM_ID, id);
 });
 
 // new user connect via peer
-const connectToNewUser = (userId, stream) => {
+const connectToNewUser = async (userId, stream) => {
   console.log("userd-id: ", userId);
   // get the call info
-  const call = myPeer.call(userId, stream);
+  const call = await myPeer.call(userId, stream);
   // new video element for the new user
   const video = document.createElement('video');
   // joining to the call
-  call.on('stream', userVideoStream => {
+  call.on('stream', (userVideoStream) => {
     addVideoStream(video, userVideoStream);
-  })
-  // closing the call
-  call.on('close', () => {
-    video.remove();
-  })
-
-  peers[userId] = call;
+  });
+  // // closing the call
+  // call.on('close', () => {
+  //   video.remove();
+  // });
 };
 
 const addVideoStream = (video, stream) => {
   video.srcObject = stream;
   video.addEventListener('loadedmetadata', () => {
+    console.log("video stream is added");
     video.play();
-  })
+    // const canvas = faceapi.createCanvasFromMedia(video);
+    // console.log(canvas);
+    // console.log(video.width);
+  });
   videoGrid.append(video);
-}
+};
+
+// input value with JQuerry ($)
+let text = $("input");
+// when press enter send message
+$('html').keydown((e) => {
+  if (e.which == 13 && text.val().length !== 0) {
+    socket.emit('message', text.val());
+    text.val('');
+  }
+});
+
+socket.on("createMessage", message => {
+  $("ul").append(`<li class="message"><b>user</b><br/>${message}</li>`);
+  scrollToBottom();
+});
+
+// listen to user-disconnected
+socket.on('user-disconnected', (userId) => {
+  if (peers[userId]) peers[userId].close()
+  
+});
 
 const scrollToBottom = () => {
   var d = $('.main__chat_window');
@@ -101,7 +124,6 @@ const muteUnmute = () => {
 };
 
 const playStop = () => {
-  console.log('object')
   let enabled = myVideoStream.getVideoTracks()[0].enabled;
   if (enabled) {
     myVideoStream.getVideoTracks()[0].enabled = false;
@@ -111,6 +133,38 @@ const playStop = () => {
     myVideoStream.getVideoTracks()[0].enabled = true;
   }
 };
+
+const playAPI = () => {
+  const video = document.getElementsByTagName("video")[0];
+  const canvas = faceapi.createCanvasFromMedia(video);
+  videoGrid.append(canvas);
+  const displaySize = { width: 520, height: 415 };
+  faceapi.matchDimensions(canvas, displaySize);    
+  setInterval(async () => {
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceExpressions()
+      .withAgeAndGender();
+    const resizedDetections = faceapi.resizeResults(detection, displaySize);
+
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+    faceapi.draw.drawDetections(canvas, resizedDetections);
+    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+    faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+
+    const age = resizedDetections.age;
+    const gender = resizedDetections.gender;
+    const box = resizedDetections.detection.box
+    const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(age) + " year old " + gender })
+    drawBox.draw(canvas);
+  }, 90);
+};
+
+const closeAPI = () => {
+  
+};
+
 
 const setMuteButton = () => {
   const html = `
@@ -134,7 +188,7 @@ const setStopVideo = () => {
     <span>Stop Video</span>
   `
   document.querySelector('.main__video_button').innerHTML = html;
-};;
+};
 
 const setPlayVideo = () => {
   const html = `
