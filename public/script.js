@@ -81,13 +81,11 @@ const loadLabeledImages = () => {
 
 // make the othes able to join into the room vie peer
 myPeer.on('open', (id) => {
-  console.log("id: ",id, "Room id: ",ROOM_ID);
   socket.emit("join-room", ROOM_ID, id);
 });
 
 // new user connect via peer
 const connectToNewUser = async (userId, stream) => {
-  console.log("userd-id: ", userId);
   // get the call info
   const call = await myPeer.call(userId, stream);
   // new video element for the new user
@@ -95,6 +93,7 @@ const connectToNewUser = async (userId, stream) => {
   // joining to the call
   call.on('stream', (userVideoStream) => {
     addVideoStream(video, userVideoStream);
+    console.log("call on userd-id: ", userId);
   });
   // // closing the call
   // call.on('close', () => {
@@ -107,7 +106,6 @@ const connectToNewUser = async (userId, stream) => {
 const addVideoStream = (video, stream) => {
   video.srcObject = stream;
   video.addEventListener('loadedmetadata', () => {
-    console.log("video stream is added");
     video.play();
   });
   videoGrid.append(video);
@@ -131,7 +129,6 @@ socket.on("createMessage", message => {
 // listen to user-disconnected
 socket.on('user-disconnected', (userId) => {
   if (peers[userId]) peers[userId].close()
-  
 });
 
 const scrollToBottom = () => {
