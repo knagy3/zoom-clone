@@ -84,10 +84,10 @@ myPeer.on('open', (id) => {
   socket.emit("join-room", ROOM_ID, id);
 });
 
-// new user connect via peer
-const connectToNewUser = async (userId, stream) => {
-  // get the call info
-  const call = await myPeer.call(userId, stream);
+// new user connect via peer // async
+const connectToNewUser = (userId, stream) => {
+  // get the call info // await
+  const call = myPeer.call(userId, stream);
   // new video element for the new user
   const video = document.createElement('video');
   // joining to the call
