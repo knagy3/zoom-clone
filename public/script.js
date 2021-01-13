@@ -95,11 +95,10 @@ const connectToNewUser = (userId, stream) => {
     addVideoStream(video, userVideoStream);
     console.log("call on userd-id: ", userId);
   });
-  // // closing the call
-  // call.on('close', () => {
-  //   video.remove();
-  // });
-  console.log('user-connected');
+  // closing the call
+  call.on('close', () => {
+    video.remove();
+  });
   peers[userId] = call;
 };
 
