@@ -3,10 +3,10 @@ const videoGrid = document.getElementById('video-grid');
 const myPeer = new Peer(undefined, {
   path: '/peerjs',
   host: '/',
-  //port: '3030' --> for local
   port: '443'
 });
 
+const peers = {};
 let faceMatcher;
 let predictedAges = [];
 let myVideoStream;
@@ -80,7 +80,6 @@ const loadLabeledImages = () => {
   )
 };
 
-
 // make the othes able to join into the room vie peer
 myPeer.on('open', (id) => {
   console.log("id: ",id, "Room id: ",ROOM_ID);
@@ -102,6 +101,7 @@ const connectToNewUser = async (userId, stream) => {
   // call.on('close', () => {
   //   video.remove();
   // });
+  peers[userId] = call;
 };
 
 const addVideoStream = (video, stream) => {
