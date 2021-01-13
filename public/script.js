@@ -45,7 +45,6 @@ function startVideo() {
     });
     // listen to user-connected
     socket.on('user-connected', userId => {
-      console.log('user-connected');
       connectToNewUser(userId, stream);
     });
     // get labels
@@ -101,6 +100,7 @@ const connectToNewUser = async (userId, stream) => {
   // call.on('close', () => {
   //   video.remove();
   // });
+  console.log('user-connected');
   peers[userId] = call;
 };
 
