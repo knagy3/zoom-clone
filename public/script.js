@@ -6,6 +6,7 @@ const myPeer = new Peer(undefined, {
   port: '3030'
 });
 
+let faceMatcher;
 let predictedAges = [];
 let myVideoStream;
 const myVideo = document.createElement('video');
@@ -16,7 +17,8 @@ Promise.all([
   faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
   faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
   faceapi.nets.faceExpressionNet.loadFromUri('/models'),
-  faceapi.nets.ageGenderNet.loadFromUri("/models")
+  faceapi.nets.ageGenderNet.loadFromUri("/models"),
+  faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
 ]).then(startVideo);
 
 function startVideo() {
@@ -45,9 +47,39 @@ function startVideo() {
       console.log('user-connected');
       connectToNewUser(userId, stream);
     });
+    // get labels
+    mainLabel();
   },
     err => console.log(err)
   );
+};
+
+// face recog async
+const mainLabel = async () => {
+  // add images
+  console.log("label start");
+  const labeledFaceDescriptors = await loadLabeledImages();
+  faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+  console.log("label is done");
+}
+
+
+// face image loader
+const loadLabeledImages = () => {
+  const labels = ['Kristof', 'Csilla'];
+  const image_number = 5;
+  return Promise.all(
+    labels.map(async label => {
+      const descriptions = []
+      for (let i = 0; i < image_number; i++) {
+        const img = await faceapi.fetchImage(`https://raw.githubusercontent.com/WebDevSimplified/Face-Recognition-JavaScript/master/labeled_images/${label}/${i}.jpg`)
+        const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        descriptions.push(detections.descriptor)
+      }
+
+      return new faceapi.LabeledFaceDescriptors(label, descriptions);
+    })
+  )
 };
 
 
@@ -146,7 +178,6 @@ const playAPI = () => {
       .withFaceExpressions()
       .withAgeAndGender();
     const resizedDetections = faceapi.resizeResults(detection, displaySize);
-
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
     faceapi.draw.drawDetections(canvas, resizedDetections);
@@ -162,7 +193,27 @@ const playAPI = () => {
 };
 
 const closeAPI = () => {
-  
+  const video = document.getElementsByTagName("video")[0];
+  const canvas = faceapi.createCanvasFromMedia(video);
+  videoGrid.append(canvas);
+  const displaySize = { width: 520, height: 415 };
+  faceapi.matchDimensions(canvas, displaySize);    
+  setInterval(async () => {
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptors();
+    const resizedDetections = faceapi.resizeResults(detection, displaySize);
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+    faceapi.draw.drawDetections(canvas, resizedDetections);
+
+    const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor))
+    results.forEach((result, i) => {
+      const box = resizedDetections[i].detection.box;
+      const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() });
+      drawBox.draw(canvas);
+    });
+  }, 90);
 };
 
 
