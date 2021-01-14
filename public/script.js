@@ -7,9 +7,9 @@ const myPeer = new Peer(undefined, {
 });
 
 const peers = {};
-let faceMatcher;
+let faceMatcher = null;
 let predictedAges = [];
-let myVideoStream;
+let myVideoStream = null;
 const myVideo = document.createElement('video');
 myVideo.muted = true;
 
@@ -39,9 +39,8 @@ function startVideo() {
       const video = document.createElement('video');
       call.on('stream', (userVideoStream) => {
         addVideoStream(video, userVideoStream);
-        console.log("call on is done! 36th line");
-      })
-      
+        console.log("call on is done!");
+      });
     });
     // listen to user-connected
     socket.on('user-connected', userId => {
@@ -61,7 +60,6 @@ const mainLabel = async () => {
   faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
 }
 
-
 // face image loader
 const loadLabeledImages = () => {
   const labels = ['Kristof', 'Isabella'];
@@ -78,28 +76,31 @@ const loadLabeledImages = () => {
     })
   )
 };
-
 // make the othes able to join into the room vie peer
 myPeer.on('open', (id) => {
-  socket.emit("join-room", ROOM_ID, id);
+  socket.emit('join-room', ROOM_ID, id);
 });
 
 // new user connect via peer // async
 const connectToNewUser = (userId, stream) => {
-  // get the call info // await
-  const call = myPeer.call(userId, stream);
-  // new video element for the new user
-  const video = document.createElement('video');
-  // joining to the call
-  call.on('stream', (userVideoStream) => {
-    addVideoStream(video, userVideoStream);
-    console.log("call on userd-id: ", userId);
-  });
-  // closing the call
-  call.on('close', () => {
-    video.remove();
-  });
-  peers[userId] = call;
+  try {
+    // get the call info // await
+    const call = myPeer.call(userId, stream);
+    // new video element for the new user
+    const video = document.createElement('video');
+    // joining to the call
+    call.on('stream', (userVideoStream) => {
+      addVideoStream(video, userVideoStream);
+      console.log("call on userd-id: ", userId);
+    });
+    // closing the call
+    call.on('close', () => {
+      video.remove();
+    });
+    peers[userId] = call;
+  } catch(e) {
+    console.log('error connection', e);
+  }
 };
 
 const addVideoStream = (video, stream) => {
@@ -159,7 +160,7 @@ const playStop = () => {
 
 const refresh = () => {
   window.location.reload();
-}
+};
 
 const getFaceExpressions = () => {
   const video = document.getElementsByTagName("video")[0];
