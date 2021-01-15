@@ -62,8 +62,8 @@ const mainLabel = async () => {
 
 // face image loader
 const loadLabeledImages = () => {
-  const labels = ['Kristof', 'Isabella'];
-  const image_number = 5;
+  const labels = ['Balint', 'Csilla', 'Kristof', 'Laci', 'Szilvi'];
+  const image_number = 4;
   return Promise.all(
     labels.map(async label => {
       const descriptions = []
